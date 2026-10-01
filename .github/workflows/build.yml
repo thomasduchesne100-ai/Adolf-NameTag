@@ -19,5 +19,12 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Check project files
+        run: |
+          echo "Checking repository..."
+          dir
+          echo "Checking libs..."
+          dir libs
+
       - name: Build project
         run: dotnet build AdolfNameTag.csproj --configuration Release
