@@ -5,6 +5,26 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>AdolfNameTag</AssemblyName>
     <RootNamespace>AdolfNameTag</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(GorillaTagPath)\BepInEx\core\BepInEx.dll</HintPath>
+    </Reference>
+
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GorillaTagPath)\Gorilla Tag_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+
+    <Reference Include="UnityEngine">
+      <HintPath>$(GorillaTagPath)\Gorilla Tag_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GorillaTagPath)\Gorilla Tag_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+
+  </ItemGroup>
 
 </Project>
