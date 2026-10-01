@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>latest</LangVersion>
@@ -11,17 +10,11 @@
     <Reference Include="BepInEx">
       <HintPath>libs\BepInEx.dll</HintPath>
     </Reference>
-
-```
-<Reference Include="UnityEngine">
-  <HintPath>libs\UnityEngine.dll</HintPath>
-</Reference>
-
-<Reference Include="UnityEngine.CoreModule">
-  <HintPath>libs\UnityEngine.CoreModule.dll</HintPath>
-</Reference>
-```
-
+    <Reference Include="UnityEngine">
+      <HintPath>libs\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>libs\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
-
 </Project>
