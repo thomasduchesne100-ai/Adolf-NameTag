@@ -1,0 +1,63 @@
+name: Inspect Gorilla Tag DLL
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inspect Assembly-CSharp
+        shell: pwsh
+        run: |
+          $lib = (Resolve-Path "libs").Path
+
+          Get-ChildItem "$lib\*.dll" | ForEach-Object {
+            try {
+              [Reflection.Assembly]::LoadFrom($_.FullName) | Out-Null
+            } catch {}
+          }
+
+          $asm = [Reflection.Assembly]::LoadFrom(
+            (Resolve-Path "libs\Assembly-CSharp.dll")
+          )
+
+          try {
+            $types = $asm.GetTypes()
+          }
+          catch [Reflection.ReflectionTypeLoadException] {
+            $types = $_.Exception.Types | Where-Object { $_ -ne $null }
+          }
+
+          $flags =
+            [Reflection.BindingFlags]::Public -bor
+            [Reflection.BindingFlags]::NonPublic -bor
+            [Reflection.BindingFlags]::Instance -bor
+            [Reflection.BindingFlags]::Static
+
+          $types |
+            Where-Object {
+              $_.Name -match "VRRig|GorillaParent|GorillaPlayer|Player"
+            } |
+            Sort-Object FullName |
+            ForEach-Object {
+
+              Write-Host ""
+              Write-Host "========================================"
+              Write-Host "TYPE: $($_.FullName)"
+              Write-Host "========================================"
+
+              $_.GetFields($flags) |
+                ForEach-Object {
+                  Write-Host "FIELD: $($_.FieldType.FullName) $($_.Name)"
+                }
+
+              $_.GetProperties($flags) |
+                ForEach-Object {
+                  Write-Host "PROP: $($_.PropertyType.FullName) $($_.Name)"
+                }
+            }
