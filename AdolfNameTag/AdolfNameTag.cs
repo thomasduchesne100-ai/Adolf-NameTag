@@ -1,6 +1,17 @@
+using System;
+using System.Collections;
+using System.Reflection;
+using BepInEx;
+using UnityEngine;
+
+[BepInPlugin("com.adolf.nametag", "Adolf NameTag", "6.0.0")]
+public class AdolfNameTag : BaseUnityPlugin
+{
+private Type vrRigType;
+
 private void Start()
 {
-    Logger.LogInfo("Adolf NameTag 5.0.1 démarre.");
+    Logger.LogInfo("Adolf NameTag démarre.");
     StartCoroutine(Setup());
 }
 
@@ -20,12 +31,12 @@ private IEnumerator Setup()
 
     while (true)
     {
-        CreateTags();
+        UpdateTags();
         yield return new WaitForSeconds(1f);
     }
 }
 
-private void CreateTags()
+private void UpdateTags()
 {
     foreach (UnityEngine.Object obj in Resources.FindObjectsOfTypeAll(vrRigType))
     {
@@ -39,62 +50,46 @@ private void CreateTags()
         if (head == null)
             continue;
 
-        Transform oldTag = head.Find("AdolfNameTag");
+        GameObject tag = head.Find("AdolfNameTag")?.gameObject;
 
-        GameObject tag;
-
-        if (oldTag == null)
+        if (tag == null)
         {
             tag = new GameObject("AdolfNameTag");
             tag.transform.SetParent(head, false);
             tag.transform.localPosition = new Vector3(0f, 0.35f, 0f);
-            tag.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            tag.transform.localScale = Vector3.one * 0.01f;
 
             TextMesh text = tag.AddComponent<TextMesh>();
             text.fontSize = 40;
-            text.characterSize = 0.08f;
+            text.characterSize = 0.1f;
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
-        }
-        else
-        {
-            tag = oldTag.gameObject;
         }
 
         TextMesh mesh = tag.GetComponent<TextMesh>();
 
-        if (mesh != null)
-        {
-            string playerName = GetName(rig);
-            string platform = GetPlatform(rig);
+        if (mesh == null)
+            continue;
 
-            int hz = Screen.currentResolution.refreshRate;
+        int hz = Screen.currentResolution.refreshRate;
 
-            if (hz <= 0)
-                hz = 90;
+        if (hz <= 0)
+            hz = 90;
 
-            mesh.text = hz + " Hz\n" + platform + " • " + playerName;
-        }
+        mesh.text = hz + " Hz\n" +
+                    GetPlatform(rig) + " • " +
+                    GetName(rig);
 
         Camera cam = Camera.main;
 
         if (cam != null)
-        {
-            Vector3 direction = tag.transform.position - cam.transform.position;
-
-            if (direction.sqrMagnitude > 0.001f)
-            {
-                tag.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
-            }
-        }
+            tag.transform.LookAt(cam.transform);
     }
 }
 
 private Transform FindHead(Transform root)
 {
-    Transform[] children = root.GetComponentsInChildren<Transform>(true);
-
-    foreach (Transform child in children)
+    foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
     {
         string name = child.name.ToLower();
 
@@ -120,16 +115,14 @@ private string GetName(Component rig)
         "UserName"
     };
 
-    foreach (string member in names)
+    foreach (string name in names)
     {
-        object value = GetMember(rig, member);
+        object value = GetMember(rig, name);
 
-        if (value != null)
+        if (value != null &&
+            !string.IsNullOrWhiteSpace(value.ToString()))
         {
-            string result = value.ToString();
-
-            if (!string.IsNullOrWhiteSpace(result))
-                return result;
+            return value.ToString();
         }
     }
 
@@ -146,9 +139,9 @@ private string GetPlatform(Component rig)
         "Player_Platform"
     };
 
-    foreach (string member in names)
+    foreach (string name in names)
     {
-        object value = GetMember(rig, member);
+        object value = GetMember(rig, name);
 
         if (value == null)
             continue;
@@ -177,8 +170,7 @@ private object GetMember(Component obj, string name)
         name,
         BindingFlags.Instance |
         BindingFlags.Public |
-        BindingFlags.NonPublic
-    );
+        BindingFlags.NonPublic);
 
     if (field != null)
     {
@@ -195,8 +187,7 @@ private object GetMember(Component obj, string name)
         name,
         BindingFlags.Instance |
         BindingFlags.Public |
-        BindingFlags.NonPublic
-    );
+        BindingFlags.NonPublic);
 
     if (property != null)
     {
@@ -229,5 +220,5 @@ private Type FindType(string name)
     }
 
     return null;
-}
+  }
 }
