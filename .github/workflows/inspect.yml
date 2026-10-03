@@ -1,4 +1,4 @@
-name: Inspect VRRigData
+name: Find NameTag Data
 
 on:
   workflow_dispatch:
@@ -8,10 +8,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Inspect VRRigData
+      - name: Find player name data
         shell: pwsh
         run: |
           $lib = (Resolve-Path "libs").Path
@@ -39,32 +38,17 @@ jobs:
             [Reflection.BindingFlags]::Instance -bor
             [Reflection.BindingFlags]::Static
 
-          $types |
-            Where-Object {
-              $_.FullName -match "VRRigData|VRRig|CosmeticsV2Spawner"
-            } |
-            ForEach-Object {
+          foreach ($type in $types) {
+            try {
+              $fields = $type.GetFields($flags)
 
-              Write-Host ""
-              Write-Host "========================================"
-              Write-Host "TYPE: $($_.FullName)"
-              Write-Host "========================================"
+              foreach ($field in $fields) {
+                $text = "$($field.Name) $($field.FieldType.FullName)"
 
-              $_.GetFields($flags) |
-                ForEach-Object {
-                  Write-Host "FIELD: $($_.FieldType.FullName) $($_.Name)"
+                if ($text -match "name|player|nick|username|userid|userId|display") {
+                  Write-Host "TYPE: $($type.FullName)"
+                  Write-Host "FIELD: $text"
                 }
-
-              $_.GetProperties($flags) |
-                ForEach-Object {
-                  Write-Host "PROP: $($_.PropertyType.FullName) $($_.Name)"
-                }
-
-              $_.GetMethods($flags) |
-                Where-Object {
-                  $_.Name -match "Name|Player|Rig|Cosmetic"
-                } |
-                ForEach-Object {
-                  Write-Host "METHOD: $($_.ReturnType.FullName) $($_.Name)"
-                }
-            }
+              }
+            } catch {}
+          }
