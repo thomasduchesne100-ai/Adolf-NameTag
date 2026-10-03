@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inspect Assembly-CSharp
+      - name: Inspect player related classes
         shell: pwsh
         run: |
           $lib = (Resolve-Path "libs").Path
@@ -41,7 +41,7 @@ jobs:
 
           $types |
             Where-Object {
-              $_.Name -match "VRRig|GorillaParent|GorillaPlayer|Player"
+              $_.Name -match "Player|Rig|Network|Gorilla|Online|Photon"
             } |
             Sort-Object FullName |
             ForEach-Object {
