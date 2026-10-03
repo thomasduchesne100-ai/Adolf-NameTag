@@ -1,4 +1,4 @@
-name: Inspect Gorilla Tag DLL
+name: Inspect VRRigData
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inspect player related classes
+      - name: Inspect VRRigData
         shell: pwsh
         run: |
           $lib = (Resolve-Path "libs").Path
@@ -41,9 +41,8 @@ jobs:
 
           $types |
             Where-Object {
-              $_.Name -match "Player|Rig|Network|Gorilla|Online|Photon"
+              $_.FullName -match "VRRigData|VRRig|CosmeticsV2Spawner"
             } |
-            Sort-Object FullName |
             ForEach-Object {
 
               Write-Host ""
@@ -59,5 +58,13 @@ jobs:
               $_.GetProperties($flags) |
                 ForEach-Object {
                   Write-Host "PROP: $($_.PropertyType.FullName) $($_.Name)"
+                }
+
+              $_.GetMethods($flags) |
+                Where-Object {
+                  $_.Name -match "Name|Player|Rig|Cosmetic"
+                } |
+                ForEach-Object {
+                  Write-Host "METHOD: $($_.ReturnType.FullName) $($_.Name)"
                 }
             }
