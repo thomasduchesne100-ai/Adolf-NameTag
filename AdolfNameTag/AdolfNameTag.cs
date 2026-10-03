@@ -1,412 +1,340 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 using BepInEx;
 using UnityEngine;
 
-[BepInPlugin("com.adolf.nametag", "Adolf NameTag", "3.1.0")]
+[BepInPlugin("com.adolf.nametag", "Adolf NameTag", "3.0.0")]
 public class AdolfNameTag : BaseUnityPlugin
 {
-private Type vrRigType;
-private float nextScanTime;
+    private Type vrRigType;
 
-```
-private void Awake()
-{
-    Logger.LogInfo("Adolf NameTag 3.1.0 chargé.");
-    StartCoroutine(FindVRRig());
-}
-
-private IEnumerator FindVRRig()
-{
-    yield return new WaitForSeconds(2f);
-
-    vrRigType = FindType("VRRig");
-
-    if (vrRigType == null)
+    private void Start()
     {
-        Logger.LogWarning("VRRig introuvable.");
-        yield break;
+        Logger.LogInfo("Adolf NameTag démarre.");
+        StartCoroutine(Initialize());
     }
 
-    Logger.LogInfo("VRRig trouvé : " + vrRigType.FullName);
-}
-
-private void Update()
-{
-    if (vrRigType == null)
-        return;
-
-    if (Time.unscaledTime < nextScanTime)
-        return;
-
-    nextScanTime = Time.unscaledTime + 1f;
-
-    try
+    private IEnumerator Initialize()
     {
+        yield return new WaitForSeconds(3f);
+
+        vrRigType = FindType("VRRig");
+
+        if (vrRigType == null)
+        {
+            Logger.LogError("Adolf NameTag : VRRig introuvable.");
+            yield break;
+        }
+
+        Logger.LogInfo("Adolf NameTag : VRRig trouvé.");
+
+        while (true)
+        {
+            UpdateNameTags();
+            yield return new WaitForSeconds(1f);
+        }
+    }
+
+    private void UpdateNameTags()
+    {
+        if (vrRigType == null)
+            return;
+
         UnityEngine.Object[] rigs =
             Resources.FindObjectsOfTypeAll(vrRigType);
 
-        foreach (UnityEngine.Object obj in rigs)
+        foreach (UnityEngine.Object rigObject in rigs)
         {
-            Component rig = obj as Component;
-
-            if (rig == null)
+            if (rigObject == null)
                 continue;
 
-            GameObject go = rig.gameObject;
+            object rig = rigObject;
 
-            if (go == null)
-                continue;
+            string playerName = GetPlayerName(rig);
 
-            if (!go.activeInHierarchy)
-                continue;
+            if (string.IsNullOrEmpty(playerName))
+                playerName = "Unknown";
 
-            if (!go.scene.IsValid())
-                continue;
+            string platform = GetPlatform(rig);
 
-            UpdateRig(rig);
-        }
-    }
-    catch (Exception ex)
-    {
-        Logger.LogError("Erreur NameTag : " + ex.Message);
-    }
-}
+            int hz = GetRefreshRate();
 
-private void UpdateRig(Component rig)
-{
-    string playerName = GetStringValue(
-        rig,
-        "playerName",
-        "nickName",
-        "nickname",
-        "defaultName",
-        "creatorUsername"
-    );
+            string finalText =
+                hz + " Hz\n" +
+                platform + " • " +
+                playerName;
 
-    if (string.IsNullOrWhiteSpace(playerName))
-        return;
-
-    object playerText = GetValue(
-        rig,
-        "playerText",
-        "playerNameText"
-    );
-
-    if (playerText == null)
-        return;
-
-    string platform = GetPlatform(rig);
-    int hz = GetRefreshRate();
-
-    // FORMAT :
-    //
-    //        190 Hz
-    // STEAM • PlayerName
-
-    string newText =
-        hz + " Hz\n" +
-        platform + " • " + playerName;
-
-    if (TrySetText(playerText, newText))
-    {
-        TryCenterText(playerText);
-    }
-}
-
-private string GetPlatform(Component rig)
-{
-    object value = GetValue(
-        rig,
-        "platformTag",
-        "platformType",
-        "Player_Platform"
-    );
-
-    if (value != null)
-    {
-        string text = value.ToString();
-
-        if (text.IndexOf(
-            "Steam",
-            StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            return "STEAM";
-        }
-
-        if (text.IndexOf(
-            "Quest",
-            StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            return "META";
-        }
-
-        if (text.IndexOf(
-            "Meta",
-            StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            return "META";
+            SetNameText(rig, finalText);
         }
     }
 
-    return "PC";
-}
-
-private int GetRefreshRate()
-{
-    try
+    private string GetPlayerName(object rig)
     {
-        int rate = Screen.currentResolution.refreshRate;
+        string[] names =
+        {
+            "playerName",
+            "nickName",
+            "nickname",
+            "defaultName",
+            "creatorUsername",
+            "PlayerName"
+        };
 
-        if (rate > 0)
-            return rate;
+        foreach (string name in names)
+        {
+            object value = GetMemberValue(rig, name);
+
+            if (value != null)
+            {
+                string result = value.ToString();
+
+                if (!string.IsNullOrWhiteSpace(result))
+                    return result;
+            }
+        }
+
+        return "";
     }
-    catch
+
+    private string GetPlatform(object rig)
     {
+        string[] names =
+        {
+            "platformTag",
+            "platformType",
+            "Player_Platform",
+            "platform",
+            "Platform"
+        };
+
+        foreach (string name in names)
+        {
+            object value = GetMemberValue(rig, name);
+
+            if (value != null)
+            {
+                string platform = value.ToString().ToUpper();
+
+                if (platform.Contains("STEAM"))
+                    return "STEAM";
+
+                if (platform.Contains("META"))
+                    return "META";
+
+                if (platform.Contains("OCULUS"))
+                    return "META";
+
+                if (platform.Contains("QUEST"))
+                    return "META";
+            }
+        }
+
+        return "STEAM";
     }
 
-    return 90;
-}
-
-private static Type FindType(string typeName)
-{
-    Type type =
-        Type.GetType(typeName + ", Assembly-CSharp");
-
-    if (type != null)
-        return type;
-
-    foreach (Assembly assembly
-             in AppDomain.CurrentDomain.GetAssemblies())
+    private int GetRefreshRate()
     {
         try
         {
-            type = assembly.GetType(typeName);
+            int hz = Screen.currentResolution.refreshRate;
 
-            if (type != null)
-                return type;
+            if (hz <= 0)
+                return 90;
 
-            type = assembly.GetType(
-                "GorillaLocomotion." + typeName
-            );
-
-            if (type != null)
-                return type;
+            return hz;
         }
         catch
         {
+            return 90;
         }
     }
 
-    return null;
-}
-
-private static object GetValue(
-    object obj,
-    params string[] names)
-{
-    if (obj == null)
-        return null;
-
-    Type type = obj.GetType();
-
-    const BindingFlags flags =
-        BindingFlags.Public |
-        BindingFlags.NonPublic |
-        BindingFlags.Instance |
-        BindingFlags.Static;
-
-    foreach (string name in names)
+    private void SetNameText(object rig, string text)
     {
-        Type current = type;
+        string[] textMembers =
+        {
+            "playerText",
+            "playerNameText",
+            "nameText",
+            "NameText"
+        };
 
-        while (current != null)
+        foreach (string memberName in textMembers)
+        {
+            object textObject = GetMemberValue(rig, memberName);
+
+            if (textObject == null)
+                continue;
+
+            if (SetTextValue(textObject, text))
+            {
+                CenterText(textObject);
+                return;
+            }
+        }
+    }
+
+    private bool SetTextValue(object textObject, string text)
+    {
+        Type type = textObject.GetType();
+
+        PropertyInfo property =
+            type.GetProperty(
+                "text",
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic
+            );
+
+        if (property != null && property.CanWrite)
         {
             try
             {
-                FieldInfo field =
-                    current.GetField(name, flags);
+                property.SetValue(textObject, text);
+                return true;
+            }
+            catch
+            {
+            }
+        }
 
-                if (field != null)
-                    return field.GetValue(obj);
+        FieldInfo field =
+            type.GetField(
+                "text",
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic
+            );
 
-                PropertyInfo property =
-                    current.GetProperty(name, flags);
+        if (field != null)
+        {
+            try
+            {
+                field.SetValue(textObject, text);
+                return true;
+            }
+            catch
+            {
+            }
+        }
 
-                if (property != null &&
-                    property.CanRead)
+        return false;
+    }
+
+    private void CenterText(object textObject)
+    {
+        Type type = textObject.GetType();
+
+        PropertyInfo property =
+            type.GetProperty(
+                "alignment",
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic
+            );
+
+        if (property != null && property.CanWrite)
+        {
+            try
+            {
+                if (property.PropertyType.IsEnum)
                 {
-                    return property.GetValue(obj);
+                    object value =
+                        Enum.Parse(
+                            property.PropertyType,
+                            "Center",
+                            true
+                        );
+
+                    property.SetValue(textObject, value);
                 }
             }
             catch
             {
             }
-
-            current = current.BaseType;
         }
     }
 
-    return null;
-}
-
-private static string GetStringValue(
-    object obj,
-    params string[] names)
-{
-    object value = GetValue(obj, names);
-
-    if (value == null)
-        return null;
-
-    return value.ToString();
-}
-
-private static bool TrySetText(
-    object textObject,
-    string value)
-{
-    if (textObject == null)
-        return false;
-
-    try
+    private object GetMemberValue(object instance, string memberName)
     {
-        Type type = textObject.GetType();
+        if (instance == null)
+            return null;
 
-        const BindingFlags flags =
-            BindingFlags.Public |
-            BindingFlags.NonPublic |
-            BindingFlags.Instance;
+        Type type = instance.GetType();
 
-        PropertyInfo textProperty =
-            type.GetProperty("text", flags);
-
-        if (textProperty != null &&
-            textProperty.CanWrite &&
-            textProperty.PropertyType == typeof(string))
-        {
-            textProperty.SetValue(
-                textObject,
-                value
-            );
-
-            return true;
-        }
-
-        FieldInfo textField =
-            type.GetField("text", flags);
-
-        if (textField != null &&
-            textField.FieldType == typeof(string))
-        {
-            textField.SetValue(
-                textObject,
-                value
-            );
-
-            return true;
-        }
-
-        GameObject go = textObject as GameObject;
-
-        if (go != null)
-        {
-            Component[] components =
-                go.GetComponentsInChildren<Component>(true);
-
-            foreach (Component component in components)
-            {
-                if (component == null)
-                    continue;
-
-                if (TrySetText(component, value))
-                    return true;
-            }
-        }
-    }
-    catch
-    {
-    }
-
-    return false;
-}
-
-private static void TryCenterText(
-    object textObject)
-{
-    if (textObject == null)
-        return;
-
-    try
-    {
-        Type type = textObject.GetType();
-
-        const BindingFlags flags =
-            BindingFlags.Public |
-            BindingFlags.NonPublic |
-            BindingFlags.Instance;
-
-        PropertyInfo alignmentProperty =
+        PropertyInfo property =
             type.GetProperty(
-                "alignment",
-                flags
+                memberName,
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic
             );
 
-        if (alignmentProperty != null &&
-            alignmentProperty.CanWrite &&
-            alignmentProperty.PropertyType.IsEnum)
+        if (property != null)
         {
             try
             {
-                object center =
-                    Enum.Parse(
-                        alignmentProperty.PropertyType,
-                        "Center"
-                    );
-
-                alignmentProperty.SetValue(
-                    textObject,
-                    center
-                );
+                return property.GetValue(instance);
             }
             catch
             {
             }
         }
 
-        FieldInfo alignmentField =
+        FieldInfo field =
             type.GetField(
-                "alignment",
-                flags
+                memberName,
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic
             );
 
-        if (alignmentField != null &&
-            alignmentField.FieldType.IsEnum)
+        if (field != null)
         {
             try
             {
-                object center =
-                    Enum.Parse(
-                        alignmentField.FieldType,
-                        "Center"
-                    );
-
-                alignmentField.SetValue(
-                    textObject,
-                    center
-                );
+                return field.GetValue(instance);
             }
             catch
             {
             }
         }
-    }
-    catch
-    {
-    }
-}
-```
 
+        return null;
+    }
+
+    private Type FindType(string typeName)
+    {
+        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                Type type = assembly.GetType(typeName);
+
+                if (type != null)
+                    return type;
+            }
+            catch
+            {
+            }
+        }
+
+        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                foreach (Type type in assembly.GetTypes())
+                {
+                    if (type.Name == typeName)
+                        return type;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        return null;
+    }
 }
