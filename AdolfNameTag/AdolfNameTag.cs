@@ -1,17 +1,6 @@
-using System;
-using System.Collections;
-using System.Reflection;
-using BepInEx;
-using UnityEngine;
-
-[BepInPlugin("com.adolf.nametag", "Adolf NameTag", "5.0.0")]
-public class AdolfNameTag : BaseUnityPlugin
-{
-private Type vrRigType;
-
 private void Start()
 {
-    Logger.LogInfo("Adolf NameTag 5.0.0 démarre.");
+    Logger.LogInfo("Adolf NameTag 5.0.1 démarre.");
     StartCoroutine(Setup());
 }
 
@@ -59,6 +48,7 @@ private void CreateTags()
             tag = new GameObject("AdolfNameTag");
             tag.transform.SetParent(head, false);
             tag.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+            tag.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
 
             TextMesh text = tag.AddComponent<TextMesh>();
             text.fontSize = 40;
@@ -75,7 +65,7 @@ private void CreateTags()
 
         if (mesh != null)
         {
-            string name = GetName(rig);
+            string playerName = GetName(rig);
             string platform = GetPlatform(rig);
 
             int hz = Screen.currentResolution.refreshRate;
@@ -83,27 +73,34 @@ private void CreateTags()
             if (hz <= 0)
                 hz = 90;
 
-            mesh.text = hz + " Hz\n" + platform + " • " + name;
+            mesh.text = hz + " Hz\n" + platform + " • " + playerName;
         }
 
         Camera cam = Camera.main;
 
         if (cam != null)
         {
-            tag.transform.LookAt(cam.transform);
+            Vector3 direction = tag.transform.position - cam.transform.position;
+
+            if (direction.sqrMagnitude > 0.001f)
+            {
+                tag.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+            }
         }
     }
 }
 
 private Transform FindHead(Transform root)
 {
-    foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
-    {
-        string n = child.name.ToLower();
+    Transform[] children = root.GetComponentsInChildren<Transform>(true);
 
-        if (n == "head" ||
-            n == "headtransform" ||
-            n.Contains("head"))
+    foreach (Transform child in children)
+    {
+        string name = child.name.ToLower();
+
+        if (name == "head" ||
+            name == "headtransform" ||
+            name.Contains("head"))
         {
             return child;
         }
@@ -127,10 +124,12 @@ private string GetName(Component rig)
     {
         object value = GetMember(rig, member);
 
-        if (value != null &&
-            !string.IsNullOrWhiteSpace(value.ToString()))
+        if (value != null)
         {
-            return value.ToString();
+            string result = value.ToString();
+
+            if (!string.IsNullOrWhiteSpace(result))
+                return result;
         }
     }
 
@@ -215,8 +214,7 @@ private object GetMember(Component obj, string name)
 
 private Type FindType(string name)
 {
-    foreach (Assembly assembly in
-        AppDomain.CurrentDomain.GetAssemblies())
+    foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
     {
         try
         {
@@ -231,4 +229,5 @@ private Type FindType(string name)
     }
 
     return null;
+}
 }
